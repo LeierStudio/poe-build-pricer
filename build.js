@@ -41,7 +41,7 @@ fs.unlinkSync(path.join(dist, 'bundle.js'));
 fs.unlinkSync(path.join(dist, 'sea-config.json'));
 
 // 使用說明：轉成 CRLF + BOM，舊版記事本也能正常顯示
-const txt = fs.readFileSync(path.join(root, '使用說明.txt'), 'utf8').replace(/\r?\n/g, '\r\n');
+const txt = fs.readFileSync(path.join(root, 'release', '使用說明.txt'), 'utf8').replace(/\r?\n/g, '\r\n');
 fs.writeFileSync(path.join(outDir, '使用說明.txt'), '﻿' + txt);
 
 // 壓成 zip 方便傳給別人
