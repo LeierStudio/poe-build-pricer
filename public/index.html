@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PoE 裝備查價</title>
+<style>
+  :root {
+    --bg: #0f0e0c; --panel: #1a1815; --panel2: #221f1a; --line: #332e26; --text: #e2dccd; --muted: #8f8776;
+    --accent: #d4ac5c; --unique: #d0763a; --rare: #e6d46e; --magic: #8f8fff; --normal: #c8c8c8;
+    --ok: #74c278; --bad: #e0705f; --warn: #e3a14a;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 "Microsoft JhengHei", "Segoe UI", sans-serif; }
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 20px 16px 60px; }
+  h1 { margin: 0; font-size: 24px; color: var(--accent); }
+  .sub { color: var(--muted); margin: 4px 0 18px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; margin-bottom: 14px; }
+  .step { font-weight: 600; margin-bottom: 8px; }
+  .step b { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: #1a1408; margin-right: 6px; font-size: 13px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  input[type=text] { flex: 1 1 380px; min-width: 0; padding: 12px 14px; font-size: 15px; background: #0b0a09; color: var(--text); border: 1px solid var(--line); border-radius: 8px; }
+  input[type=text]:focus { outline: 2px solid var(--accent); border-color: transparent; }
+  button { padding: 10px 16px; font-size: 15px; background: #2a251e; color: var(--text); border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: #1a1408; border-color: var(--accent); font-weight: 700; padding: 12px 26px; }
+  button:disabled { opacity: .45; cursor: default; }
+  .hint { color: var(--muted); font-size: 13px; margin-top: 8px; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 13px; margin-top: 10px; user-select: none; }
+  details[open] summary { margin-bottom: 8px; }
+  .adv { display: flex; gap: 18px; flex-wrap: wrap; font-size: 14px; }
+  .adv label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); }
+  select { padding: 7px 10px; font-size: 14px; background: #0b0a09; color: var(--text); border: 1px solid var(--line); border-radius: 6px; }
+  #statusCard { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  #status { flex: 1 1 300px; }
+  #status.err { color: var(--bad); font-weight: 600; }
+  .bar { height: 8px; background: #0b0a09; border-radius: 4px; overflow: hidden; margin-top: 8px; }
+  .bar > div { height: 100%; width: 0; background: var(--accent); transition: width .4s; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 14px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; }
+  .stat .k { color: var(--muted); font-size: 13px; }
+  .stat .v { font-size: 22px; font-weight: 700; color: var(--accent); }
+  .stat .v.big { font-size: 28px; }
+  .stat .s { color: var(--muted); font-size: 12px; }
+  .tablewrap { overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+  table { width: 100%; border-collapse: collapse; min-width: 760px; }
+  th, td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  th { color: var(--muted); font-weight: 500; font-size: 13px; background: var(--panel2); white-space: nowrap; }
+  td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  td.price { font-weight: 700; font-size: 16px; }
+  tr.off td { opacity: .45; }
+  .r-UNIQUE { color: var(--unique); font-weight: 600; } .r-RARE { color: var(--rare); font-weight: 600; } .r-MAGIC { color: var(--magic); } .r-NORMAL { color: var(--normal); }
+  .base { color: var(--muted); font-size: 13px; }
+  .toggle { font-size: 12px; color: var(--accent); cursor: pointer; user-select: none; }
+  .mods { font-size: 13px; margin-top: 6px; display: none; padding: 8px 10px; background: #0b0a09; border-radius: 6px; }
+  .mods.open { display: block; }
+  .mods .ok { color: var(--ok); } .mods .bad { color: var(--muted); }
+  .listings { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .badge { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 10px; white-space: nowrap; }
+  .b-ok { background: #24341f; color: var(--ok); }
+  .b-warn { background: #3a2a14; color: var(--warn); }
+  .b-muted { background: #26231e; color: var(--muted); }
+  .b-err { background: #3a1d18; color: var(--bad); }
+  .note { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  a.btn { display: inline-block; padding: 5px 12px; border: 1px solid var(--line); border-radius: 6px; color: var(--accent); text-decoration: none; white-space: nowrap; font-size: 13px; }
+  a.btn:hover { border-color: var(--accent); }
+  .spin::before { content: ''; display: inline-block; width: 12px; height: 12px; margin-right: 6px; vertical-align: -1px; border: 2px solid var(--accent); border-right-color: transparent; border-radius: 50%; animation: sp 0.8s linear infinite; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+  .muted { color: var(--muted); }
+  .help { font-size: 14px; color: var(--muted); }
+  .help h3 { color: var(--text); font-size: 15px; margin: 14px 0 4px; }
+  .help ul { margin: 4px 0; padding-left: 20px; }
+  .help b { color: var(--text); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>PoE 裝備查價</h1>
+  <div class="sub">貼上 Build 網址，自動到 Path of Exile 國際服市集查詢每件裝備目前的價格</div>
+
+  <div class="card">
+    <div class="step"><b>1</b>貼上 Build 網址，按「查詢價格」</div>
+    <div class="row">
+      <input id="input" type="text" placeholder="例如：https://pobb.in/XuQ6mkkOhnjQ" autocomplete="off">
+      <button id="btnLoad" class="primary">查詢價格</button>
+    </div>
+    <div class="hint">支援 pobb.in、pastebin、poe.ninja 的 Build 連結，也可以直接貼 Path of Building 的匯出碼。</div>
+    <details>
+      <summary>進階設定（一般不用改）</summary>
+      <div class="adv">
+        <label>賽季 <select id="league"><option>讀取中…</option></select></label>
+        <label>賣家狀態
+          <select id="sellerStatus">
+            <option value="online">只看在線賣家（建議）</option>
+            <option value="securable">只看可即時購買</option>
+            <option value="any">全部（含離線）</option>
+          </select>
+        </label>
+        <label>稀有裝備詞綴相似度
+          <select id="pct">
+            <option value="0.8">寬鬆（數值 80% 以上）</option>
+            <option value="0.85" selected>一般（數值 85% 以上）</option>
+            <option value="0.9">嚴格（數值 90% 以上）</option>
+            <option value="1">完全相同</option>
+          </select>
+        </label>
+      </div>
+    </details>
+  </div>
+
+  <div class="card" id="statusWrap" hidden>
+    <div id="statusCard">
+      <div id="status"></div>
+      <button id="btnStop" hidden>停止查價</button>
+      <button id="btnPrice" hidden>重新查價（勾選的裝備）</button>
+    </div>
+    <div class="bar" id="barWrap" hidden><div id="bar"></div></div>
+  </div>
+
+  <div class="stats" id="summary" hidden>
+    <div class="stat"><div class="k">裝備總價（參考價合計）</div><div class="v big" id="total">-</div><div class="s" id="totalSub"></div></div>
+    <div class="stat"><div class="k">神聖石匯率</div><div class="v" id="divRate">-</div><div class="s">1 個神聖石可換的混沌石數量</div></div>
+    <div class="stat"><div class="k">角色</div><div class="v" id="buildInfo" style="font-size:18px">-</div><div class="s" id="itemCount"></div></div>
+  </div>
+
+  <div class="tablewrap" id="tbl" hidden>
+    <table>
+      <thead>
+        <tr>
+          <th title="取消勾選的裝備不會計入總價"><input type="checkbox" id="chkAll" checked></th>
+          <th>部位</th><th>裝備</th>
+          <th class="num" title="市集上目前最便宜的一筆">最低價</th>
+          <th class="num" title="最便宜的 10 筆取中間值，比最低價更接近行情">參考價</th>
+          <th class="num" title="符合條件、目前在架上的數量">在架數</th>
+          <th>比對結果</th><th>市集</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="card help" style="margin-top:14px">
+    <details>
+      <summary style="font-size:14px">使用說明與常見問題</summary>
+      <h3>價格怎麼看？</h3>
+      <ul>
+        <li><b>最低價</b>：市集上目前最便宜的一筆，可能是低價搶單或誤標。</li>
+        <li><b>參考價</b>：最便宜的 10 筆取中間值，比較接近實際行情；「裝備總價」就是參考價加總。</li>
+        <li>價格以 <b>神聖石</b>／<b>混沌石</b> 表示；其他通貨（如鏡子）會自動換算。</li>
+        <li>按「<b>查看</b>」會開啟官方市集（繁體中文介面），可以自己確認或調整條件。</li>
+      </ul>
+      <h3>比對結果是什麼意思？</h3>
+      <ul>
+        <li><span class="badge b-ok">相符</span> 傳奇裝備找到同名物品，或稀有裝備的詞綴大致相同。</li>
+        <li><span class="badge b-warn">僅供參考</span> 找不到幾乎一樣的物品，已放寬條件，價格可能偏高或偏低，建議點「查看」自己確認。</li>
+        <li><span class="badge b-muted">無在架</span> 目前市集上沒有人在賣。</li>
+        <li>普通（白色）物品不估價。魔法藥劑會依「基底＋前後綴詞綴」比價。稀有裝備的名稱是遊戲隨機產生的，所以顯示中文基底名稱。</li>
+      </ul>
+      <h3>為什麼要等這麼久？</h3>
+      <ul>
+        <li>官方市集限制查詢頻率（約每 5 分鐘 30 次），工具會自動排隊等待，整套 Build 約 5～10 分鐘。</li>
+        <li>等待期間<b>不要關閉黑色視窗</b>，也<b>不要同時開兩個查價</b>，否則可能被官方暫停 30 分鐘。</li>
+        <li>同一件裝備 15 分鐘內重查會直接使用上次的結果，不用再等。</li>
+      </ul>
+      <h3>出現「無法連線到查價程式」</h3>
+      <ul><li>黑色視窗被關掉了。重新開啟「PoE裝備查價.exe」（或 start.bat），再按一次查詢即可。</li></ul>
+    </details>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let items = [];
+let results = {};
+let divine = null;
+let currentJobId = null;
+let running = false;
+
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function fmt(chaos) {
+  if (chaos == null) return '-';
+  if (divine && chaos >= divine) return (chaos / divine).toFixed(chaos / divine >= 10 ? 0 : 1) + ' 神聖';
+  return Math.round(chaos) + ' 混沌';
+}
+function setStatus(msg, err) {
+  $('statusWrap').hidden = false;
+  $('status').textContent = msg;
+  $('status').className = err ? 'err' : '';
+}
+const OFFLINE_MSG = '無法連線到查價程式：黑色視窗可能被關掉了。請重新開啟「PoE裝備查價.exe」（或 start.bat），再按一次「查詢價格」。';
+const errMsg = (e) => (e instanceof TypeError && /fetch|network/i.test(e.message) ? OFFLINE_MSG : e.message);
+const fmtLeft = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)); return s >= 60 ? `${Math.floor(s / 60)} 分 ${s % 60} 秒` : `${s} 秒`; };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+try { $('input').value = localStorage.getItem('lastInput') || ''; } catch {}
+$('input').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btnLoad').click(); });
+
+fetch('/api/leagues').then((r) => r.json()).then((j) => {
+  if (j.error) throw new Error(j.error);
+  $('league').innerHTML = j.leagues.map((l) => `<option ${l === j.default ? 'selected' : ''}>${esc(l)}</option>`).join('');
+}).catch((e) => setStatus('讀取賽季列表失敗：' + errMsg(e), true));
+
+// ---------------------------------------------------------------- 讀取 Build
+$('btnLoad').onclick = async () => {
+  const input = $('input').value.trim();
+  if (!input) { setStatus('請先貼上 Build 網址', true); $('input').focus(); return; }
+  if (running) await stopJob();
+  try { localStorage.setItem('lastInput', input); } catch {}
+  setStatus('讀取 Build 中…');
+  $('btnLoad').disabled = true;
+  try {
+    const r = await fetch('/api/parse', { method: 'POST', body: JSON.stringify({ input }) });
+    const j = await r.json();
+    if (j.error) throw new Error(j.error);
+    items = j.items;
+    results = {};
+    $('tbody').innerHTML = ''; // 新 Build：勾選狀態重設為預設
+    const b = j.build || {};
+    $('buildInfo').textContent = [b.ascendClassName || b.className, b.level && 'Lv' + b.level].filter(Boolean).join(' ') || '-';
+    render();
+    $('tbl').hidden = false;
+    $('summary').hidden = false;
+    startPricing();
+  } catch (e) {
+    setStatus('讀取失敗：' + errMsg(e), true);
+  } finally {
+    $('btnLoad').disabled = false;
+  }
+};
+
+// ---------------------------------------------------------------- 顯示
+const CUR_ZH = { chaos: '混沌', divine: '神聖', exalted: '崇高', mirror: '鏡子', alch: '點金', vaal: '瓦爾' };
+const curZh = (c) => CUR_ZH[c] || c;
+const canPrice = (it) => it.rarity === 'UNIQUE' || it.rarity === 'RARE' || it.rarity === 'RELIC' || it.rarity === 'MAGIC';
+
+function zhMap(it) {
+  const m = new Map();
+  for (const x of [...(it.implicitsZh || []), ...(it.explicitsZh || [])]) {
+    m.set(x.en, x.zh);
+    const parts = x.en.split('\n');
+    if (parts.length > 1) parts.forEach((p) => m.set(p, x.zh));
+  }
+  return m;
+}
+
+function nameHtml(it) {
+  const baseZh = it.baseZh || it.base;
+  const corrupt = it.corrupted ? '・已汙染' : '';
+  const rarityZh = { UNIQUE: '傳奇', RARE: '稀有', MAGIC: '魔法', NORMAL: '普通', RELIC: '聖物' }[it.rarity] || '';
+  let main, sub;
+  if (it.rarity === 'UNIQUE' || it.rarity === 'RELIC') { main = it.nameZh || it.name; sub = baseZh + corrupt; }
+  else { main = baseZh; sub = rarityZh + (it.name ? `・${it.name}` : '') + corrupt; }
+  return `<span class="r-${esc(it.rarity)}" title="${esc([it.name, it.base].filter(Boolean).join(' / '))}">${esc(main)}</span><div class="base">${esc(sub)}</div>`;
+}
+
+function modsHtml(it, res) {
+  const zm = zhMap(it);
+  const mods = it.implicitsZh ? [...it.implicitsZh, ...it.explicitsZh] : [...(it.implicits || []), ...(it.explicits || [])].map((m) => ({ en: m.text, zh: m.text }));
+  let html = `<div>${mods.map((m) => `<div title="${esc(m.en)}">${esc(m.zh).replace(/\n/g, '<br>')}</div>`).join('') || '<span class="muted">（無詞綴）</span>'}</div>`;
+  if (res && res.matched && (res.matched.length || (res.unmatched || []).length)) {
+    const tz = (t) => esc(zm.get(t) || t).replace(/\n/g, ' ');
+    html += `<div style="margin-top:6px;border-top:1px solid var(--line);padding-top:6px">搜尋時使用的條件：${res.matched.map((t) => `<div class="ok">✓ ${tz(t)}</div>`).join('')}${(res.unmatched || []).map((t) => `<div class="bad">－ 未使用：${tz(t)}</div>`).join('')}</div>`;
+  }
+  if (res && res.listings && res.listings.length) {
+    html += `<div class="listings">市集最便宜的 ${res.listings.length} 筆：${res.listings.map((l) => `${l.amount} ${esc(curZh(l.currency))}`).join('、')}</div>`;
+  }
+  return html;
+}
+
+function resultCells(it, res) {
+  // 回傳 [最低價, 參考價, 在架數, 比對結果, 市集]
+  if (!canPrice(it)) return ['', '', '', '<span class="badge b-muted">不估價</span><div class="note">普通物品</div>', ''];
+  if (res === 'pending') return ['<span class="spin">查詢中</span>', '', '', '', ''];
+  if (res === 'queued') return ['<span class="muted">等待查詢</span>', '', '', '', ''];
+  if (!res) return ['', '', '', '', ''];
+  if (res.error) return ['', '', '', `<span class="badge b-err">查詢失敗</span><div class="note">${esc(res.error)}</div>`, ''];
+  if (res.skipped) return ['', '', '', `<span class="badge b-muted">不估價</span><div class="note">${esc(res.skipped)}</div>`, ''];
+  const link = `<a class="btn" href="${esc(res.url)}" target="_blank" rel="noopener">查看</a>`;
+  if (res.total === 0) return ['<span class="muted">-</span>', '<span class="muted">-</span>', '0', '<span class="badge b-muted">無在架</span><div class="note">目前沒有人在賣</div>', link];
+  let min = fmt(res.minChaos);
+  if (res.minChaos == null && res.listings && res.listings.length) min = esc(res.listings[0].amount + ' ' + curZh(res.listings[0].currency));
+  const badge = res.loose
+    ? `<span class="badge b-warn" title="找不到幾乎一樣的物品，已放寬條件">僅供參考</span><div class="note">${esc(res.attempt)}</div>`
+    : `<span class="badge b-ok">相符</span><div class="note">${esc(res.attempt)}</div>`;
+  return [min, fmt(res.medianChaos), String(res.total), badge, link];
+}
+
+function render() {
+  const checked = new Set(checkedKeys());
+  const first = !$('tbody').children.length;
+  const open = new Set([...document.querySelectorAll('.mods.open')].map((el) => el.id));
+  $('tbody').innerHTML = items.map((it, i) => {
+    const res = results[it.key];
+    const [min, med, cnt, badge, link] = resultCells(it, res);
+    const on = first ? canPrice(it) : checked.has(it.key);
+    return `<tr class="${on ? '' : 'off'}">
+      <td><input type="checkbox" class="chk" data-i="${i}" ${on ? 'checked' : ''} ${canPrice(it) ? '' : 'disabled'}></td>
+      <td style="white-space:nowrap">${esc(it.slotLabel)}</td>
+      <td>${nameHtml(it)}<span class="toggle" data-t="${i}">詞綴 ▾</span><div class="mods ${open.has('mods' + i) ? 'open' : ''}" id="mods${i}">${modsHtml(it, typeof res === 'object' ? res : null)}</div></td>
+      <td class="num">${min}</td><td class="num price">${med}</td><td class="num">${cnt}</td><td>${badge}</td><td>${link}</td>
+    </tr>`;
+  }).join('');
+  document.querySelectorAll('.toggle').forEach((el) => (el.onclick = () => $('mods' + el.dataset.t).classList.toggle('open')));
+  document.querySelectorAll('.chk').forEach((el) => (el.onchange = () => { el.closest('tr').classList.toggle('off', !el.checked); updateTotal(); }));
+  updateTotal();
+}
+
+function checkedKeys() {
+  return [...document.querySelectorAll('.chk')].filter((c) => c.checked).map((c) => items[+c.dataset.i].key);
+}
+function checkedItems() {
+  const ks = new Set(checkedKeys());
+  return items.filter((it) => ks.has(it.key));
+}
+function updateTotal() {
+  let sum = 0, n = 0, all = 0;
+  for (const it of checkedItems()) {
+    all++;
+    const r = results[it.key];
+    if (r && r.medianChaos != null) { sum += r.medianChaos; n++; }
+  }
+  $('total').textContent = n ? fmt(sum) : '-';
+  $('totalSub').textContent = n ? `= ${Math.round(sum).toLocaleString()} 混沌石（已估價 ${n}／${all} 件）` : '查價完成後顯示';
+  $('divRate').textContent = divine ? Math.round(divine) + ' 混沌' : '-';
+  $('itemCount').textContent = items.length ? `共 ${items.length} 件裝備／珠寶` : '';
+}
+$('chkAll').onchange = (e) => {
+  document.querySelectorAll('.chk:not(:disabled)').forEach((c) => { c.checked = e.target.checked; c.closest('tr').classList.toggle('off', !c.checked); });
+  updateTotal();
+};
+
+// ---------------------------------------------------------------- 查價（背景工作 + 輪詢）
+async function stopJob() {
+  if (currentJobId) await fetch(`/api/job/${currentJobId}/stop`, { method: 'POST' }).catch(() => {});
+  for (let i = 0; i < 20 && running; i++) await sleep(200);
+}
+$('btnStop').onclick = () => { setStatus('停止中…'); stopJob(); };
+$('btnPrice').onclick = () => startPricing();
+
+async function startPricing() {
+  if (running) return;
+  const sel = checkedItems();
+  if (!sel.length) return setStatus('請至少勾選一件要查價的裝備', true);
+  running = true;
+  for (const it of sel) results[it.key] = 'queued';
+  render();
+  $('btnStop').hidden = false; $('btnPrice').hidden = true; $('barWrap').hidden = false; $('bar').style.width = '0%';
+  let done = 0, waitUntil = 0, finished = false;
+  const t0 = Date.now();
+  const progress = () => {
+    $('bar').style.width = `${Math.round((done / sel.length) * 100)}%`;
+    if (waitUntil > Date.now()) {
+      const left = waitUntil - Date.now();
+      const why = left >= 600e3 ? ' 官方暫時限制了查詢（查太頻繁），請耐心等待，不要關閉黑色視窗。' : '';
+      setStatus(`已完成 ${done}／${sel.length} 件。官方限制查詢頻率，${fmtLeft(left)} 後自動繼續…${why}`);
+    } else if (!finished) {
+      const eta = done >= 2 ? `，預估還要約 ${Math.max(1, Math.round((((Date.now() - t0) / done) * (sel.length - done)) / 60000))} 分鐘` : '';
+      setStatus(`查價中… 已完成 ${done}／${sel.length} 件${eta}`);
+    }
+  };
+  const handle = (ev) => {
+    if (ev.type === 'rate') { divine = ev.divine; updateTotal(); }
+    else if (ev.type === 'warn') setStatus(ev.message, true);
+    else if (ev.type === 'start') { waitUntil = 0; results[ev.key] = 'pending'; render(); }
+    else if (ev.type === 'wait') waitUntil = Date.now() + ev.seconds * 1000;
+    else if (ev.type === 'item') { waitUntil = 0; results[ev.key] = ev.result; done++; render(); }
+    else if (ev.type === 'done') { finished = true; setStatus(`查價完成！共 ${done} 件。價格會隨市場變動，僅供參考，可點「查看」到市集確認。`); }
+    else if (ev.type === 'stopped') { finished = true; setStatus(`已停止（完成 ${done} 件）。勾選要查的裝備後，可按「重新查價」。`); }
+  };
+  try {
+    const r = await fetch('/api/price', {
+      method: 'POST',
+      body: JSON.stringify({ league: $('league').value, status: $('sellerStatus').value, pct: +$('pct').value, items: sel }),
+    });
+    const j = await r.json();
+    if (j.error) throw new Error(j.error);
+    currentJobId = j.id;
+    setStatus('取得神聖石匯率…');
+    let from = 0, fails = 0;
+    while (!finished) {
+      await sleep(1500);
+      let p;
+      try {
+        p = await (await fetch(`/api/job/${j.id}?from=${from}`)).json();
+        fails = 0;
+      } catch (e) {
+        if (++fails >= 5) throw e;
+        continue;
+      }
+      if (p.error) throw new Error(p.error);
+      from += p.events.length;
+      p.events.forEach(handle);
+      if (p.done) finished = true;
+      if (!finished) progress();
+    }
+  } catch (e) {
+    setStatus('查價中斷：' + errMsg(e), true);
+  } finally {
+    currentJobId = null;
+    running = false;
+    for (const k in results) if (results[k] === 'queued' || results[k] === 'pending') delete results[k];
+    render();
+    $('bar').style.width = '100%';
+    $('btnStop').hidden = true; $('btnPrice').hidden = false;
+  }
+}
+</script>
+</body>
+</html>

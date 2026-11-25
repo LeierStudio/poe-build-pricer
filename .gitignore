@@ -1,0 +1,6 @@
+node_modules/
+# 打包輸出（exe 約 96MB，用 node build.js 產生）
+dist/
+# 執行時下載的快取資料
+data/
+*.log
