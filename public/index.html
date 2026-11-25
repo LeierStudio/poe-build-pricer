@@ -69,6 +69,9 @@
   .spin::before { content: ''; display: inline-block; width: 12px; height: 12px; margin-right: 6px; vertical-align: -1px; border: 2px solid var(--accent); border-right-color: transparent; border-radius: 50%; animation: sp 0.8s linear infinite; }
   @keyframes sp { to { transform: rotate(360deg); } }
   .muted { color: var(--muted); }
+  .limit-note { margin-top: 12px; padding: 10px 14px; background: #2a1f10; border: 1px solid #5a4220; border-radius: 8px; font-size: 13px; color: var(--text); }
+  .limit-note b { color: var(--warn); }
+  .limit-note ul { margin: 6px 0 0; padding-left: 20px; }
   .help { font-size: 14px; color: var(--muted); }
   .help h3 { color: var(--text); font-size: 15px; margin: 14px 0 4px; }
   .help ul { margin: 4px 0; padding-left: 20px; }
@@ -106,6 +109,19 @@
             <option value="1">完全相同</option>
           </select>
         </label>
+        <label>每次查詢間隔（秒）
+          <input type="number" id="interval" min="2" max="60" step="1" value="2" style="width:110px;padding:7px 10px;font-size:14px;background:#0b0a09;color:var(--text);border:1px solid var(--line);border-radius:6px">
+        </label>
+      </div>
+      <div class="limit-note">
+        <b>⚠ 官方市集的查詢限制（同一個網路共用）</b>
+        <ul>
+          <li>每 10 秒最多 5 次、每 1 分鐘最多 15 次、每 5 分鐘最多 30 次</li>
+          <li>超過會被官方暫停查詢 <b>1 分鐘、5 分鐘，最久 30 分鐘</b></li>
+          <li>間隔最短 2 秒。不論填多少，工具都會自動遵守上面的上限，所以不會因為間隔填太短而超過</li>
+          <li>但如果<b>同一個網路</b>（例如家裡、網咖）還有其他人或其他工具在查市集，額度是共用的，請把間隔調長（建議 5～10 秒），否則容易被暫停</li>
+          <li>一整套 Build 約需 40～50 次查詢，碰到「每 5 分鐘 30 次」的上限時一定要等，間隔再短也無法避免</li>
+        </ul>
       </div>
     </details>
   </div>
@@ -163,6 +179,7 @@
         <li>官方市集限制查詢頻率（約每 5 分鐘 30 次），工具會自動排隊等待，整套 Build 約 5～10 分鐘。</li>
         <li>等待期間<b>不要關閉黑色視窗</b>，也<b>不要同時開兩個查價</b>，否則可能被官方暫停 30 分鐘。</li>
         <li>同一件裝備 15 分鐘內重查會直接使用上次的結果，不用再等。</li>
+        <li>「進階設定」可以調整每次查詢的間隔（最短 2 秒）。同一個網路有其他人也在查市集時，請調長一點。</li>
       </ul>
       <h3>出現「無法連線到查價程式」</h3>
       <ul><li>黑色視窗被關掉了。重新開啟「PoE裝備查價.exe」（或 start.bat），再按一次查詢即可。</li></ul>
@@ -195,6 +212,21 @@ const fmtLeft = (ms) => { const s = Math.max(0, Math.ceil(ms / 1000)); return s 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 try { $('input').value = localStorage.getItem('lastInput') || ''; } catch {}
+// 查詢間隔：最短 2 秒、最長 60 秒，記住使用者的設定
+function getInterval() {
+  let v = Math.round(Number($('interval').value));
+  if (!Number.isFinite(v) || v < 2) v = 2;
+  if (v > 60) v = 60;
+  $('interval').value = v;
+  return v;
+}
+try { const iv = localStorage.getItem('interval'); if (iv) $('interval').value = iv; } catch {}
+$('interval').addEventListener('change', () => {
+  const raw = Number($('interval').value);
+  const v = getInterval();
+  try { localStorage.setItem('interval', String(v)); } catch {}
+  if (raw < 2) setStatus('查詢間隔最短 2 秒（官方限制每 10 秒最多 5 次），已自動改為 2 秒', true);
+});
 $('input').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('btnLoad').click(); });
 
 fetch('/api/leagues').then((r) => r.json()).then((j) => {
@@ -372,7 +404,7 @@ async function startPricing() {
   try {
     const r = await fetch('/api/price', {
       method: 'POST',
-      body: JSON.stringify({ league: $('league').value, status: $('sellerStatus').value, pct: +$('pct').value, items: sel }),
+      body: JSON.stringify({ league: $('league').value, status: $('sellerStatus').value, pct: +$('pct').value, interval: getInterval(), items: sel }),
     });
     const j = await r.json();
     if (j.error) throw new Error(j.error);

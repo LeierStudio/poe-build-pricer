@@ -20,8 +20,9 @@ const jobs = new Map();
 let jobSeq = 0;
 let currentJob = null;
 
-async function runJob(job, { league, status, pct, items }) {
+async function runJob(job, { league, status, pct, items, interval }) {
   const send = (o) => job.events.push(o);
+  trade.setSearchInterval(interval);
   const onWait = (ms, kind) => send({ type: 'wait', seconds: Math.ceil(ms / 1000), kind });
   onWait.isCancelled = () => job.cancelled;
   try {
